@@ -1,0 +1,26 @@
+[
+  {
+    "id": "1",
+    "name": "John Doe",
+    "username": "johndoe",
+    "password": "password123",
+    "account_type": "customer",
+    "account_balance": 600
+  },
+  {
+    "id": "2",
+    "name": "Jane Smith",
+    "username": "janesmith",
+    "password": "password456",
+    "account_type": "merchant",
+    "account_balance": 5400
+  },
+  {
+    "id": "3",
+    "name": "Peter Jones",
+    "username": "peterjones",
+    "password": "password789",
+    "account_type": "customer",
+    "account_balance": 2000
+  }
+]
