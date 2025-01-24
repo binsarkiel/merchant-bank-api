@@ -51,44 +51,7 @@ API sederhana untuk transaksi antara pedagang (merchant) dan pelanggan (customer
         JWT_SECRET_KEY=ganti_dengan_secret_key_anda
         ```
 
-        **Penting:** Ganti `ganti_dengan_secret_key_anda` dengan secret key yang kuat dan aman. **Jangan gunakan secret key ini untuk production.**
-
-4.  **Buat file JSON (jika belum ada):**
-
-    -   Jika folder `data` dan file-file JSON di dalamnya belum ada, buat secara manual atau gunakan command berikut di terminal:
-
-        ```bash
-        mkdir data
-        touch data/users.json data/sessions.json data/transactions.json
-        echo "[]" > data/users.json
-        echo "[]" > data/sessions.json
-        echo "[]" > data/transactions.json
-        ```
-
-    -   Isi `data/users.json` dengan data user awal. Contoh:
-
-        ```json
-        [
-            {
-                "id": "1",
-                "name": "John Doe",
-                "username": "johndoe",
-                "password": "password123",
-                "account_type": "customer",
-                "account_balance": 1000
-            },
-            {
-                "id": "2",
-                "name": "Jane Smith",
-                "username": "janesmith",
-                "password": "password456",
-                "account_type": "merchant",
-                "account_balance": 5000
-            }
-        ]
-        ```
-
-5.  **Jalankan aplikasi:**
+3.  **Jalankan aplikasi:**
 
     ```bash
     go run main.go
