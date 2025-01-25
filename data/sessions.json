@@ -1,12 +1,1 @@
-[
-  {
-    "activity": "logged_in",
-    "username": "johndoe",
-    "timestamp": "2025-01-25T04:19:23.4539501+07:00"
-  },
-  {
-    "activity": "signed_out",
-    "username": "johndoe",
-    "timestamp": "2025-01-25T04:20:10.5278853+07:00"
-  }
-]
+[]

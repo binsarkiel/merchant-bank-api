@@ -3,7 +3,6 @@ package repository
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"sync"
 
@@ -173,20 +172,6 @@ func AddTransaction(transaction models.Transaction) error {
 
 	transactions = append(transactions, transaction)
 	return SaveTransactions(transactions)
-}
-
-// FindUserByName finds a user by their name.
-func FindUserByName(name string) (*models.User, error) {
-	users, err := LoadUsers()
-	if err != nil {
-		return nil, err
-	}
-	for _, u := range users {
-		if u.Name == name {
-			return &u, nil
-		}
-	}
-	return nil, fmt.Errorf("user with name %s not found", name)
 }
 
 // GetUserBalance retrieves the current balance of a user.

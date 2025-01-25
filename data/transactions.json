@@ -1,10 +1,1 @@
-[
-  {
-    "activity": "transfer_money",
-    "transaction_id": "5bd6a7b3-f45a-4190-b21e-dbac460a044f",
-    "sender": "John Doe",
-    "recipient": "Jane Smith",
-    "amount": 100,
-    "created_at": "2025-01-25T04:19:52.2286887+07:00"
-  }
-]
+[]

@@ -3,7 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
-	"os"
+	"sync"
 	"time"
 
 	"merchant-bank-api/models"
@@ -11,25 +11,22 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// JWT secret key (keep this secure in a real application)
 var jwtKey []byte
+var invalidTokens = sync.Map{}
 
-func init() {
-	// Load environment variables from .env file
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error loading .env file:", err)
-		// Handle error appropriately, e.g., exit if .env is crucial
-	}
+// HashPassword hashes a password using bcrypt.
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14) // Cost factor 14
+	return string(bytes), err
+}
 
-	jwtKeyString := os.Getenv("JWT_SECRET_KEY")
-	if jwtKeyString == "" {
-		panic("JWT_SECRET_KEY not set in .env file")
-	}
-	jwtKey = []byte(jwtKeyString) // Konversi string ke []byte
+// CheckPasswordHash compares a password with its hash.
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
 
 // Login authenticates a user and generates a JWT token.
@@ -39,13 +36,12 @@ func Login(username, password string) (string, error) {
 		return "", err
 	}
 
-	// In a real application, use a secure method like bcrypt to verify passwords
-	if user.Password != password {
+	if !CheckPasswordHash(password, user.Password) {
 		return "", errors.New("invalid password")
 	}
 
 	// Create JWT token
-	expirationTime := time.Now().Add(24 * time.Hour) // Token expires in 24 hours
+	expirationTime := time.Now().Add(1 * time.Minute)
 	claims := &models.Claims{
 		Username:    user.Username,
 		AccountType: user.AccountType,
@@ -82,10 +78,7 @@ func Logout(tokenString string) (float64, error) {
 	}
 
 	// Invalidate token
-	err = InvalidateToken(tokenString)
-	if err != nil {
-		return 0, fmt.Errorf("failed to invalidate token: %v", err)
-	}
+	InvalidateToken(tokenString)
 
 	// Record logout activity
 	session := models.Session{
@@ -98,7 +91,6 @@ func Logout(tokenString string) (float64, error) {
 		fmt.Println("Failed to record logout activity:", err)
 	}
 
-	// Retrieve the user's balance after recording the logout
 	remainingBalance, err := repository.GetUserBalance(claims.Username)
 	if err != nil {
 		fmt.Println("Failed to get user balance:", err)
@@ -110,9 +102,15 @@ func Logout(tokenString string) (float64, error) {
 
 // ValidateToken validates a JWT token.
 func ValidateToken(tokenString string) (*models.Claims, error) {
+	// Cek apakah token ada di daftar token yang tidak valid
+	_, exists := invalidTokens.Load(tokenString)
+	if exists {
+		return nil, errors.New("invalid token")
+	}
+
 	claims := &models.Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(jwtKey), nil
+		return jwtKey, nil
 	})
 
 	if err != nil {
@@ -124,38 +122,23 @@ func ValidateToken(tokenString string) (*models.Claims, error) {
 	}
 
 	if claims.ExpiresAt.Before(time.Now()) {
-		return nil, errors.New("token expired")
+		return nil, errors.New("token has expired")
 	}
 
 	return claims, nil
 }
 
-// InvalidateToken invalidates a JWT token by setting its expiration time to the past.
-func InvalidateToken(tokenString string) error {
-	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, &models.Claims{})
-	if err != nil {
-		return fmt.Errorf("invalid token format: %v", err)
-	}
-
-	if claims, ok := token.Claims.(*models.Claims); ok {
-		claims.ExpiresAt = jwt.NewNumericDate(time.Now()) // Set expiration to now
-
-		// (Optional) Store the invalidated token, e.g., in a database or cache.
-		// For this example, we'll just print the invalidated token.
-		invalidatedTokenString, err := token.SignedString([]byte(jwtKey))
-		if err != nil {
-			return fmt.Errorf("failed to sign invalidated token: %v", err)
-		}
-		fmt.Printf("Invalidated token: %s\n", invalidatedTokenString)
-
-		return nil
-	}
-
-	return errors.New("invalid token claims")
+// InvalidateToken adds a token to the invalid tokens list.
+func InvalidateToken(tokenString string) {
+	invalidTokens.Store(tokenString, true)
 }
 
-// ProcessPayment handles the payment process.
 func ProcessPayment(senderUsername string, recipientUsername string, amount float64) (*models.Transaction, error) {
+	// **Periksa apakah pengirim dan penerima sama**
+	if senderUsername == recipientUsername {
+		return nil, errors.New("sender and recipient cannot be the same")
+	}
+
 	// Retrieve sender
 	sender, err := repository.FindUserByUsername(senderUsername)
 	if err != nil {
@@ -195,8 +178,8 @@ func ProcessPayment(senderUsername string, recipientUsername string, amount floa
 	transaction := models.Transaction{
 		Activity:      "transfer_money",
 		TransactionID: uuid.New(),
-		Sender:        sender.Name,
-		Recipient:     recipientUser.Name, // Simpan Nama Penerima di dalam transaksi
+		Sender:        sender.Username,
+		Recipient:     recipientUser.Username,
 		Amount:        amount,
 		CreatedAt:     time.Now(),
 	}

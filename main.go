@@ -5,8 +5,12 @@ import (
 	"os"
 
 	"merchant-bank-api/api"
+	"merchant-bank-api/models"
+	"merchant-bank-api/repository"
+	"merchant-bank-api/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
 
@@ -25,6 +29,9 @@ func main() {
 	createFileIfNotExist("data/sessions.json")
 	createFileIfNotExist("data/transactions.json")
 
+	// Setup initial users for testing purpose only
+	setupInitialUsers()
+
 	// Initialize the Gin router
 	router := gin.Default()
 
@@ -33,10 +40,10 @@ func main() {
 
 	// Protected routes (require authentication)
 	authorized := router.Group("/")
-	authorized.Use(api.AuthMiddleware())
+	authorized.Use(api.AuthMiddleware()) // Pastikan AuthMiddleware terdaftar di sini
 	{
 		authorized.POST("/payment", api.PaymentHandler)
-		authorized.POST("/logout", api.LogoutHandler)
+		authorized.DELETE("/logout", api.LogoutHandler)
 	}
 
 	// Run the server
@@ -53,5 +60,52 @@ func createFileIfNotExist(filepath string) {
 		if err != nil {
 			log.Fatalf("Failed to create %s: %v", filepath, err)
 		}
+	}
+}
+
+func setupInitialUsers() {
+	users, err := repository.LoadUsers()
+	if err != nil {
+		log.Fatalf("Failed to load users: %v", err)
+	}
+
+	// Check if users are already initialized
+	if len(users) > 0 {
+		return // Skip initialization if users already exist
+	}
+
+	// Initialize with some default users
+	initialUsers := []struct {
+		Name           string
+		Username       string
+		Password       string
+		AccountType    string
+		AccountBalance float64
+	}{
+		{"John Doe", "johndoe", "password123", "customer", 1000},
+		{"Jane Smith", "janesmith", "password456", "merchant", 100},
+		{"Peter Jones", "peterjones", "password789", "customer", 0},
+	}
+
+	for _, u := range initialUsers {
+		hashedPassword, err := services.HashPassword(u.Password)
+		if err != nil {
+			log.Fatalf("Failed to hash password for %s: %v", u.Username, err)
+		}
+
+		user := models.User{
+			ID:             uuid.New().String(), // Generate UUID
+			Name:           u.Name,
+			Username:       u.Username,
+			Password:       hashedPassword,
+			AccountType:    u.AccountType,
+			AccountBalance: u.AccountBalance,
+		}
+		users = append(users, user)
+	}
+
+	err = repository.SaveUsers(users)
+	if err != nil {
+		log.Fatalf("Failed to save initial users: %v", err)
 	}
 }
