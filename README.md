@@ -1,35 +1,84 @@
 # Merchant-Bank API
 
-API sederhana untuk transaksi antara pedagang (merchant) dan pelanggan (customer) yang disimulasikan dengan interaksi ke database file JSON.
+This is a simple API for simulating transactions between merchants and customers. It uses JSON files as a database for demonstration purposes.
 
-## Fitur
+## Features
 
--   **Login:** User (merchant atau customer) dapat login menggunakan username dan password.
--   **Payment:** User yang sudah login dapat melakukan transfer uang ke user lain (yang terdaftar) menggunakan username penerima.
--   **Logout:** User dapat logout dan token akan di-invalidate.
--   **Authentication:** Menggunakan JWT (JSON Web Token) untuk autentikasi dan otorisasi.
--   **Simulasi Database:** Menggunakan file JSON (`users.json`, `sessions.json`, `transactions.json`) untuk simulasi penyimpanan data.
+-   **Login:** Users (merchants or customers) can log in using their username and password.
+-   **Payment:** Logged-in users can transfer money to other registered users using the recipient's username.
+-   **Logout:** Users can log out, invalidating their token.
+-   **Authentication:** Uses JWT (JSON Web Token) for authentication and authorization.
+-   **Database Simulation:** Uses JSON files (`users.json`, `sessions.json`, `transactions.json`) to simulate data storage.
 
-## Teknologi yang Digunakan
+## Project Structure
 
--   **Go:** Bahasa pemrograman utama.
--   **Gin:** Web framework untuk routing dan handling HTTP requests.
--   **JWT:** Untuk autentikasi dan otorisasi.
--   **`encoding/json`:** Untuk encoding dan decoding data JSON.
--   **`os`:** Untuk interaksi dengan file system.
--   **`github.com/google/uuid`:** Untuk generate UUID (untuk ID transaksi).
--   **`github.com/joho/godotenv`:** Untuk membaca environment variables dari file `.env`.
+| Directory/File          | Description                                                                                               |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `api/`                  | Package untuk API handlers                                                                               |
+| `api/handlers.go`       | Handlers untuk masing-masing endpoint                                                                     |
+| `data/`                 | Direktori untuk file JSON data                                                                            |
+| `data/sessions.json`    | File JSON untuk data sesi                                                                                |
+| `data/transactions.json` | File JSON untuk data transaksi                                                                           |
+| `data/users.json`       | File JSON untuk data user                                                                                |
+| `go.mod`                | File Go modules                                                                                           |
+| `go.sum`                | Checksum Go modules                                                                                       |
+| `main.go`               | File utama aplikasi                                                                                      |
+| `models/`               | Package untuk model data                                                                                   |
+| `models/models.go`       | Struktur data (User, Transaction, Session, request/response models)                                     |
+| `repository/`           | Package untuk akses data                                                                                  |
+| `repository/repository.go` | Fungsi-fungsi untuk berinteraksi dengan file JSON                                                        |
+| `services/`             | Package untuk business logic                                                                              |
+| `services/services.go`   | Logika untuk autentikasi, payment, validasi token, invalidasi token                                  |
+| `utils/`                | Package untuk fungsi-fungsi utility                                                                       |
+| `utils/utils.go`        | Fungsi-fungsi bantuan (error handling, token extraction)                                                 |
+| `.env`                  | Variabel environment (JWT secret key)                                                                    |
 
-## Cara Menjalankan
+## High-Level Architecture
+
+**Components:**
+
+-   **Client:** Any application that can send HTTP requests (e.g., Postman, browser, mobile app).
+-   **API (Gin):** Handles incoming HTTP requests, routing, authentication (via middleware), and communication with the `services` layer.
+-   **Services:** Contains the core business logic, such as user authentication, payment processing, and token validation.
+-   **Repository:** Handles data access to the data store (JSON files in this case). It abstracts the data storage details from the `services` layer.
+-   **Data Store:** JSON files used to simulate a database (`users.json`, `sessions.json`, `transactions.json`, `invalidated_tokens.json`).
+
+**Integration:**
+
+1.  The client sends an HTTP request to the API.
+2.  The API (Gin) receives the request and routes it to the appropriate handler.
+3.  The `AuthMiddleware` (in `api/handlers.go`) validates the JWT token from the `Authorization` header.
+4.  The handler calls the relevant function in the `services` layer.
+5.  The `services` layer uses the `repository` layer to interact with the data store (JSON files).
+6.  The `repository` layer reads from or writes to the JSON files.
+7.  The result is returned back up the chain to the client as an HTTP response.
+
+## Technologies Used
+
+-   **Go:** Programming language.
+-   **Gin:** Web framework.
+-   **JWT:** Authentication.
+
+## Packages Used
+
+-   `github.com/gin-gonic/gin`
+-   `github.com/golang-jwt/jwt/v5`
+-   `github.com/google/uuid`
+-   `github.com/joho/godotenv`
+-   `golang.org/x/crypto/bcrypt`
+-   `encoding/json`
+-   `os`
+
+## Getting Started
 
 ### Prerequisites
 
--   **Go:** Pastikan Go sudah terinstall di sistem Anda (versi 1.20 ke atas direkomendasikan).
--   **Git:** Untuk meng-clone repository.
+-   **Go:** Ensure Go is installed on your system (version 1.20 or higher is recommended).
+-   **Git:** To clone the repository.
 
-### Langkah-langkah
+### Steps
 
-1.  **Clone repository:**
+1.  **Clone the repository:**
 
     ```bash
     git clone <repository_url>
@@ -42,24 +91,54 @@ API sederhana untuk transaksi antara pedagang (merchant) dan pelanggan (customer
     go mod download
     ```
 
-3.  **Buat file `.env`:**
+3.  **Create the `.env` file:**
 
-    -   Buat file dengan nama `.env` di root direktori project.
-    -   Isi file `.env` dengan `JWT_SECRET_KEY`:
+    -   Create a file named `.env` in the root directory of the project.
+    -   Add the `JWT_SECRET_KEY` to the `.env` file:
 
         ```
-        JWT_SECRET_KEY=ganti_dengan_secret_key_anda
+        JWT_SECRET_KEY=YOUR_STRONG_SECRET_KEY
         ```
 
-3.  **Jalankan aplikasi:**
+        **Important:** Replace `YOUR_STRONG_SECRET_KEY` with a strong, secure secret key. **Do not use this example key in production.**
+
+4.  **Create JSON data files and add dummy data:**
+
+    -   Create a `data` directory if it doesn't exist: `mkdir data`
+    -   Create the necessary JSON files: `touch data/users.json data/sessions.json data/transactions.json data/invalidated_tokens.json`
+    -   Initialize `users.json`, `transactions.json`, and `sessions.json` with an empty array `[]` and `invalidated_tokens.json` with empty object `{}`
+    -   Add the following dummy data to `data/users.json` (passwords are hashed using bcrypt - you can generate your own using an online bcrypt generator or the provided `repository/repository_test.go` file):
+
+        ```json
+        [
+            {
+                "id": "user-id-1",
+                "name": "John Doe",
+                "username": "johndoe",
+                "password": "$2a$10$S3Ej/D92x.gWj/pWnGyKDu8XguMGbUDाबनातीचाआता.wVp9O44a",
+                "account_type": "customer",
+                "account_balance": 1000
+            },
+            {
+                "id": "user-id-2",
+                "name": "Jane Smith",
+                "username": "janesmith",
+                "password": "$2a$10$vc6y.96y27a/L.h94r4v/uOk8x9l.C0e/h1vj/t.wzN/Hro.4k5mG",
+                "account_type": "merchant",
+                "account_balance": 5000
+            }
+        ]
+        ```
+
+5.  **Run the application:**
 
     ```bash
     go run main.go
     ```
 
-    Server akan berjalan di port `8080`.
+    The server will start on port `8080`.
 
-## Endpoint API
+## API Endpoints
 
 ### 1. `/login`
 
@@ -75,32 +154,26 @@ API sederhana untuk transaksi antara pedagang (merchant) dan pelanggan (customer
 
     | Field      | Type   | Description                                   |
     | :--------- | :----- | :-------------------------------------------- |
-    | `username` | string | Username user (required)                      |
-    | `password` | string | Password user (required)                      |
+    | `username` | string | Username of the user (required)               |
+    | `password` | string | Password of the user (required)               |
 
 -   **Response (Success - 200 OK):**
 
     ```json
     {
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
     }
     ```
 
-    | Field   | Type   | Description           |
-    | :------ | :----- | :-------------------- |
-    | `token` | string | JWT token for authentication |
+    | Field        | Type   | Description                     |
+    | :----------- | :----- | :------------------------------ |
+    | `access_token` | string | JWT access token for authentication |
 
 -   **Response (Error - 401 Unauthorized):**
 
     ```json
     {
-        "error": "invalid password"
-    }
-    ```
-
-    ```json
-    {
-        "error": "user not found"
+        "error": "invalid username or password"
     }
     ```
 
@@ -112,11 +185,18 @@ API sederhana untuk transaksi antara pedagang (merchant) dan pelanggan (customer
     }
     ```
 
+    -   **Response (Error - 500 Internal Server Error):**
+        ```json
+        {
+            "error": "..." // Error message related to server error
+        }
+        ```
+
 ### 2. `/payment`
 
 -   **Method:** `POST`
 -   **Headers:**
-    -   `Authorization`: `Bearer <TOKEN>` (gunakan token yang didapat dari `/login`)
+    -   `Authorization`: `Bearer <TOKEN>` (use the access token received from `/login`)
 -   **Request Body:**
 
     ```json
@@ -128,8 +208,8 @@ API sederhana untuk transaksi antara pedagang (merchant) dan pelanggan (customer
 
     | Field       | Type    | Description                                       |
     | :---------- | :------ | :------------------------------------------------ |
-    | `recipient` | string  | Username penerima (required)                     |
-    | `amount`    | number  | Jumlah uang yang ditransfer (required)            |
+    | `recipient` | string  | Username of the recipient (required)              |
+    | `amount`    | number  | Amount of money to transfer (required)            |
 
 -   **Response (Success - 200 OK):**
 
@@ -150,7 +230,7 @@ API sederhana untuk transaksi antara pedagang (merchant) dan pelanggan (customer
 
     ```json
     {
-        "error": "Invalid token"
+        "error": "invalid token"
     }
     ```
 
@@ -162,55 +242,41 @@ API sederhana untuk transaksi antara pedagang (merchant) dan pelanggan (customer
 
     ```json
     {
-        "error": "token expired"
+        "error": "invalid token format. Use 'Bearer <token>'"`
+    }
+    ```
+
+-   **Response (Error - 422 Unprocessable Entity):**
+
+    ```json
+    {
+        "error": "insufficient balance" // Example: Not enough money in the account
+    }
+    ```
+
+    ```json
+    {
+        "error": "recipient not found" // Example: Recipient user doesn't exist
     }
     ```
 
 -   **Response (Error - 500 Internal Server Error):**
-
-    ```json
-    {
-        "error": "insufficient balance"
-    }
-    ```
-
-    ```json
-    {
-        "error": "recipient not found"
-    }
-    ```
-
     ```json
     {
         "error": "failed to update sender's balance"
     }
     ```
-
     ```json
     {
         "error": "failed to update recipient's balance"
     }
     ```
 
-    ```json
-    {
-        "error": "failed to record transaction"
-    }
-    ```
-
--   **Response (Error - 400 Bad Request):**
-
-    ```json
-    {
-        "error": "..." // Error message related to invalid request body
-    }
-    ```
-
 ### 3. `/logout`
 
--   **Method:** `POST`
+-   **Method:** `DELETE`
 -   **Headers:**
-    -   `Authorization`: `Bearer <TOKEN>` (gunakan token yang didapat dari `/login`)
+    -   `Authorization`: `Bearer <TOKEN>` (use the access token received from `/login`)
 -   **Response (Success - 200 OK):**
 
     ```json
@@ -224,12 +290,10 @@ API sederhana untuk transaksi antara pedagang (merchant) dan pelanggan (customer
 
     ```json
     {
-        "error": "Invalid token"
+        "error": "invalid token"
     }
     ```
-
 -   **Response (Error - 500 Internal Server Error):**
-
     ```json
     {
         "error": "Failed to get user balance"
@@ -238,11 +302,63 @@ API sederhana untuk transaksi antara pedagang (merchant) dan pelanggan (customer
 
 ## Testing
 
-Anda dapat menggunakan Postman, curl, atau tools lain untuk testing API ini.
+You can use Postman, curl, or other tools for testing this API.
 
-**Contoh menggunakan Postman:**
+**Example using Postman:**
 
-1.  Import collection Postman (disediakan di jawaban sebelumnya).
-2.  Buat environment variable `token` di Postman.
-3.  Lakukan request ke `/login` untuk mendapatkan token. Token akan otomatis tersimpan di environment variable `token`.
-4.  Lakukan request ke `/payment` dan `/logout` dengan menyertakan header `Authorization: Bearer {{token}}`.
+1.  Import the Postman collection (provided in a previous response or create your own based on the API documentation).
+2.  Create an environment variable named `token` in Postman.
+3.  Send a request to `/login` to get an access token. Copy the `access_token` value to the `token` environment variable.
+4.  Send requests to `/payment` and `/logout` including the header `Authorization: Bearer {{token}}`.
+
+## Deployment with Docker
+
+Here's a basic guide on how to deploy this application using Docker:
+
+1.  **Create a `Dockerfile`:**
+
+    ```dockerfile
+    # Use the official Golang image as the base image
+    FROM golang:1.21
+
+    # Set the working directory inside the container
+    WORKDIR /app
+
+    # Copy go.mod and go.sum files to the container
+    COPY go.mod go.sum ./
+
+    # Download all dependencies
+    RUN go mod download
+
+    # Copy the rest of the application code to the container
+    COPY . .
+
+    # Build the Go application
+    RUN go build -o main .
+
+    # Expose port 8080
+    EXPOSE 8080
+
+    # Define the command to run the executable
+    CMD ["./main"]
+    ```
+
+2.  **Build the Docker image:**
+
+    ```bash
+    docker build -t merchant-bank-api .
+    ```
+
+3.  **Run the Docker container:**
+
+    ```bash
+    docker run -p 8080:8080 -d --name merchant-bank-container -v $(pwd)/data:/app/data -e JWT_SECRET_KEY=YOUR_STRONG_SECRET_KEY merchant-bank-api
+    ```
+
+    -   `-p 8080:8080`: Maps port 8080 of the container to port 8080 on the host machine.
+    -   `-d`: Runs the container in detached mode (in the background).
+    -   `--name merchant-bank-container`: Assigns a name to the container.
+    -   `-v $(pwd)/data:/app/data`: Mounts the local `data` directory to the `/app/data` directory inside the container (for data persistence).
+    -   `-e JWT_SECRET_KEY=YOUR_STRONG_SECRET_KEY`: Sets the `JWT_SECRET_KEY` environment variable inside the container. **Replace `YOUR_STRONG_SECRET_KEY` with your actual secret key.**
+
+    **Note:** You might need to adjust the Docker commands based on your operating system and environment.
