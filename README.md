@@ -18,7 +18,6 @@ This document provides a comprehensive guide to the Merchant Bank API, detailing
     *   [Logout (DELETE /logout)](#logout-delete-logout)
 *   [Testing with Postman](#testing-with-postman)
 *   [Deployment with Docker](#deployment-with-docker)
-*   [Security](#security)
 
 ## Technical Specifications
 
