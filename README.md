@@ -1,238 +1,272 @@
-# Merchant-Bank API
+# Merchant Bank API
 
-This is a simple API for simulating transactions between merchants and customers. It uses JSON files as a database for demonstration purposes.
+This document provides a comprehensive guide to the Merchant Bank API, detailing its functionalities, specifications, and usage instructions.
 
-## Features
+## Table of Contents
 
--   **Login:** Users (merchants or customers) can log in using their username and password.
--   **Payment:** Logged-in users can transfer money to other registered users using the recipient's username.
--   **Logout:** Users can log out, invalidating their token.
--   **Authentication:** Uses JWT (JSON Web Token) for authentication and authorization.
--   **Database Simulation:** Uses JSON files (`users.json`, `sessions.json`, `transactions.json`) to simulate data storage.
+*   [Technical Specifications](#technical-specifications)
+*   [Software Architecture](#software-architecture)
+*   [Project Structure](#project-structure)
+*   [Getting Started](#getting-started)
+    *   [Prerequisites](#prerequisites)
+    *   [Installation](#installation)
+    *   [Setting up Initial Users](#setting-up-initial-users)
+*   [Running the Application](#running-the-application)
+*   [API Endpoints](#api-endpoints)
+    *   [Login (POST /login)](#login-post-login)
+    *   [Payment (POST /payment)](#payment-post-payment)
+    *   [Logout (DELETE /logout)](#logout-delete-logout)
+*   [Testing with Postman](#testing-with-postman)
+*   [Deployment with Docker](#deployment-with-docker)
+*   [Security](#security)
+
+## Technical Specifications
+
+*   **Programming Language:** Go (Golang)
+*   **Framework:** Gin Gonic
+*   **Database:** JSON file-based (users.json, transactions.json, sessions.json)
+*   **Authentication:** JWT (JSON Web Token) with Bearer scheme
+*   **Password Hashing:** bcrypt
+*   **UUID Generator:** [github.com/google/uuid](https://github.com/google/uuid)
+
+## Software Architecture
+
+The Merchant Bank API follows a layered architecture, promoting separation of concerns and maintainability. The components interact as follows:
+
+![Architecture](https://i.imgur.com/Lsun93Z.png)
+
+*   **Client:** Any client that can send HTTP requests (e.g., Postman, web browser, mobile app).
+*   **API Layer (handlers.go):**
+    *   Handles incoming HTTP requests.
+    *   Uses Gin Gonic framework for routing.
+    *   Performs initial request validation (e.g., checking for required parameters, validating the `Bearer` token format).
+    *   Calls the appropriate functions in the Service Layer.
+    *   Returns HTTP responses to the client.
+*   **Service Layer (service.go):**
+    *   Contains the core business logic of the application.
+    *   Handles user authentication (login, logout, token validation, invalidating tokens).
+    *   Implements payment processing logic.
+    *   Interacts with the Repository Layer to access and manipulate data.
+    *   Implements password hashing using bcrypt.
+*   **Repository Layer (repository.go):**
+    *   Responsible for direct interaction with the data store (JSON files in this case).
+    *   Provides functions to load, save, and query data from the JSON files.
+    *   Uses mutexes to ensure data consistency during concurrent access.
+*   **Data Store:**
+    *   Consists of three JSON files:
+        *   `users.json`: Stores user information (ID, name, username, hashed password, account type, account balance).
+        *   `transactions.json`: Stores transaction history.
+        *   `sessions.json`: Stores user session activity (login/logout timestamps).
+
 
 ## Project Structure
 
-| Directory/File          | Description                                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------------------------------- |
-| `api/`                  | Package untuk API handlers                                                                               |
-| `api/handlers.go`       | Handlers untuk masing-masing endpoint                                                                     |
-| `data/`                 | Direktori untuk file JSON data                                                                            |
-| `data/sessions.json`    | File JSON untuk data sesi                                                                                |
-| `data/transactions.json` | File JSON untuk data transaksi                                                                           |
-| `data/users.json`       | File JSON untuk data user                                                                                |
-| `go.mod`                | File Go modules                                                                                           |
-| `go.sum`                | Checksum Go modules                                                                                       |
-| `main.go`               | File utama aplikasi                                                                                      |
-| `models/`               | Package untuk model data                                                                                   |
-| `models/models.go`       | Struktur data (User, Transaction, Session, request/response models)                                     |
-| `repository/`           | Package untuk akses data                                                                                  |
-| `repository/repository.go` | Fungsi-fungsi untuk berinteraksi dengan file JSON                                                        |
-| `services/`             | Package untuk business logic                                                                              |
-| `services/services.go`   | Logika untuk autentikasi, payment, validasi token, invalidasi token                                  |
-| `utils/`                | Package untuk fungsi-fungsi utility                                                                       |
-| `utils/utils.go`        | Fungsi-fungsi bantuan (error handling, token extraction)                                                 |
-| `.env`                  | Variabel environment (JWT secret key)                                                                    |
-
-## High-Level Architecture
-
-**Components:**
-
--   **Client:** Any application that can send HTTP requests (e.g., Postman, browser, mobile app).
--   **API (Gin):** Handles incoming HTTP requests, routing, authentication (via middleware), and communication with the `services` layer.
--   **Services:** Contains the core business logic, such as user authentication, payment processing, and token validation.
--   **Repository:** Handles data access to the data store (JSON files in this case). It abstracts the data storage details from the `services` layer.
--   **Data Store:** JSON files used to simulate a database (`users.json`, `sessions.json`, `transactions.json`, `invalidated_tokens.json`).
-
-**Integration:**
-
-1.  The client sends an HTTP request to the API.
-2.  The API (Gin) receives the request and routes it to the appropriate handler.
-3.  The `AuthMiddleware` (in `api/handlers.go`) validates the JWT token from the `Authorization` header.
-4.  The handler calls the relevant function in the `services` layer.
-5.  The `services` layer uses the `repository` layer to interact with the data store (JSON files).
-6.  The `repository` layer reads from or writes to the JSON files.
-7.  The result is returned back up the chain to the client as an HTTP response.
-
-## Technologies Used
-
--   **Go:** Programming language.
--   **Gin:** Web framework.
--   **JWT:** Authentication.
-
-## Packages Used
-
--   `github.com/gin-gonic/gin`
--   `github.com/golang-jwt/jwt/v5`
--   `github.com/google/uuid`
--   `github.com/joho/godotenv`
--   `golang.org/x/crypto/bcrypt`
--   `encoding/json`
--   `os`
-
+| Directory/File                | Description                                                                                                                      |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `api/`                        | Package for API handlers.                                                                                                         |
+| `api/handlers.go`             | Handlers for each API endpoint.                                                                                                  |
+| `data/`                       | Directory for JSON data files.                                                                                                   |
+| `data/sessions.json`          | JSON file for session data.                                                                                                      |
+| `data/transactions.json`      | JSON file for transaction data.                                                                                                  |
+| `data/users.json`             | JSON file for user data.                                                                                                         |
+| `go.mod`                      | Go modules file.                                                                                                                |
+| `go.sum`                      | Go modules checksums.                                                                                                             |
+| `main.go`                     | Main application file.                                                                                                           |
+| `models/`                     | Package for data models.                                                                                                          |
+| `models/models.go`            | Data structures (User, Transaction, Session, request/response models).                                                            |
+| `repository/`                 | Package for data access.                                                                                                          |
+| `repository/repository.go`    | Functions for interacting with JSON files.                                                                                       |
+| `services/`                   | Package for business logic.                                                                                                       |
+| `services/service.go`         | Logic for authentication, payment, token validation, token invalidation, and password hashing using bcrypt.                        |
+| `services/service_test.go`    | Unit tests for the service layer.                                                                                                  |
+| `utils/`                      | Package for utility functions.                                                                                                    |
+| `utils/utils.go`              | Helper functions (error handling).                                                                                          |
+| `.env.example`                | Example environment variables file (JWT secret key).                                                                              |
 ## Getting Started
 
 ### Prerequisites
 
--   **Go:** Ensure Go is installed on your system (version 1.20 or higher is recommended).
--   **Git:** To clone the repository.
+*   Go (version 1.20 or later) installed on your system.
+*   Git (for cloning the repository).
+*   Postman (for API testing).
 
-### Steps
+### Installation
 
-1.  **Clone the repository:**
+1.  **Clone the Repository:**
 
     ```bash
     git clone <repository_url>
     cd merchant-bank-api
     ```
 
-2.  **Install dependencies:**
+2.  **Install Dependencies:**
 
     ```bash
+    go mod tidy
     go mod download
     ```
 
-3.  **Create the `.env` file:**
+### Setting up Initial Users
 
-    -   Create a file named `.env` in the root directory of the project.
-    -   Add the `JWT_SECRET_KEY` to the `.env` file:
+This application uses JSON files as a database. When you first run the application, it will check if `data/users.json` is empty. If it is, it will automatically create three initial users for testing purposes:
 
-        ```
-        JWT_SECRET_KEY=YOUR_STRONG_SECRET_KEY
-        ```
+*   **John Doe** (customer) - username: `johndoe`, password: `password123`
+*   **Jane Smith** (merchant) - username: `janesmith`, password: `password456`
+*   **Peter Jones** (customer) - username: `peterjones`, password: `password789`
 
-        **Important:** Replace `YOUR_STRONG_SECRET_KEY` with a strong, secure secret key. **Do not use this example key in production.**
+Their passwords are automatically hashed using bcrypt during this initialization. You can find this logic in the `setupInitialUsers()` function in `main.go`.
 
-4.  **Create JSON data files and add dummy data:**
+**Important:** These are example users for testing only. For a production environment, you should implement a proper user registration and management system.
 
-    -   Create a `data` directory if it doesn't exist: `mkdir data`
-    -   Create the necessary JSON files: `touch data/users.json data/sessions.json data/transactions.json data/invalidated_tokens.json`
-    -   Initialize `users.json`, `transactions.json`, and `sessions.json` with an empty array `[]` and `invalidated_tokens.json` with empty object `{}`
-    -   Add the following dummy data to `data/users.json` (passwords are hashed using bcrypt - you can generate your own using an online bcrypt generator or the provided `repository/repository_test.go` file):
+## Running the Application
 
-        ```json
-        [
-            {
-                "id": "user-id-1",
-                "name": "John Doe",
-                "username": "johndoe",
-                "password": "$2a$10$S3Ej/D92x.gWj/pWnGyKDu8XguMGbUDाबनातीचाआता.wVp9O44a",
-                "account_type": "customer",
-                "account_balance": 1000
-            },
-            {
-                "id": "user-id-2",
-                "name": "Jane Smith",
-                "username": "janesmith",
-                "password": "$2a$10$vc6y.96y27a/L.h94r4v/uOk8x9l.C0e/h1vj/t.wzN/Hro.4k5mG",
-                "account_type": "merchant",
-                "account_balance": 5000
-            }
-        ]
-        ```
+1.  **Create `.env` file:**
 
-5.  **Run the application:**
+    *   Copy the contents of `.env.example` to a new file named `.env` in the project's root directory.
+    *   **Important:** Replace `JWT_SECRET_KEY=your_secret_key_here` with a strong, secret key. **Do not use `your_secret_key_here` in a production environment.**
+
+    ```
+    JWT_SECRET_KEY=your_strong_secret_key
+    ```
+
+2.  **Ensure Data Directory and Files Exist:**
+
+    *   Make sure the `data` directory exists in the project's root directory.
+    *   Inside the `data` directory, ensure the following files exist and contain an empty JSON array (`[]`):
+        *   `data/users.json`
+        *   `data/transactions.json`
+        *   `data/sessions.json`
+
+    If these files don't exist, the application will create them on startup.
+
+3.  **Run the Application:**
 
     ```bash
     go run main.go
     ```
 
-    The server will start on port `8080`.
+    The application will start running on `http://localhost:8080`.
 
 ## API Endpoints
 
-### 1. `/login`
+### Login (POST /login)
 
--   **Method:** `POST`
--   **Request Body:**
+Authenticates a user and returns a JWT token.
+
+**Request:**
+
+*   **Method:** `POST`
+
+*   **URL:** `/login`
+
+*   **Headers:**
+
+    *   `Content-Type`: `application/json`
+
+*   **Body:**
 
     ```json
     {
-        "username": "johndoe",
-        "password": "password123"
+        "username": "<username>",
+        "password": "<password>"
     }
     ```
 
-    | Field      | Type   | Description                                   |
-    | :--------- | :----- | :-------------------------------------------- |
-    | `username` | string | Username of the user (required)               |
-    | `password` | string | Password of the user (required)               |
+    *   `username`: User's username (string, required).
+    *   `password`: User's password (string, required).
 
--   **Response (Success - 200 OK):**
+**Response:**
+
+*   **Success (200 OK):**
 
     ```json
     {
-        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "token": "<jwt_token>"
     }
     ```
 
-    | Field        | Type   | Description                     |
-    | :----------- | :----- | :------------------------------ |
-    | `access_token` | string | JWT access token for authentication |
+    *   `token`: JWT token for authentication.
 
--   **Response (Error - 401 Unauthorized):**
+*   **Unauthorized (401 Unauthorized):**
 
     ```json
     {
-        "error": "invalid username or password"
+        "error": "Invalid username or password"
     }
     ```
 
--   **Response (Error - 400 Bad Request):**
+*   **Bad Request (400 Bad Request):**
+    * Returned if the request body is invalid or missing required fields.
 
     ```json
     {
-        "error": "..." // Error message related to invalid request body
+        "error": "invalid request body"
     }
     ```
 
-    -   **Response (Error - 500 Internal Server Error):**
-        ```json
-        {
-            "error": "..." // Error message related to server error
-        }
-        ```
+*   **Internal Server Error (500 Internal Server Error):**
+     * Returned if there is an error on the server side.
 
-### 2. `/payment`
+     ```json
+     {
+         "error": "internal server error"
+     }
+     ```
 
--   **Method:** `POST`
--   **Headers:**
-    -   `Authorization`: `Bearer <TOKEN>` (use the access token received from `/login`)
--   **Request Body:**
+### Payment (POST /payment)
+
+Performs a money transfer between two users.
+
+**Request:**
+
+*   **Method:** `POST`
+
+*   **URL:** `/payment`
+
+*   **Headers:**
+
+    *   `Content-Type`: `application/json`
+    *   `Authorization`: `Bearer <jwt_token>`
+
+*   **Body:**
 
     ```json
     {
-        "recipient": "janesmith",
-        "amount": 100
+        "recipient": "<recipient_username>",
+        "amount": <amount>
     }
     ```
 
-    | Field       | Type    | Description                                       |
-    | :---------- | :------ | :------------------------------------------------ |
-    | `recipient` | string  | Username of the recipient (required)              |
-    | `amount`    | number  | Amount of money to transfer (required)            |
+    *   `recipient`: Username of the recipient (string, required).
+    *   `amount`: Amount of money to transfer (float64, required).
 
--   **Response (Success - 200 OK):**
+**Response:**
+
+*   **Success (200 OK):**
 
     ```json
     {
+        "message": "Transfer success!",
         "transaction": {
             "activity": "transfer_money",
-            "transaction_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "sender": "John Doe",
-            "recipient": "Jane Smith",
-            "amount": 100,
-            "created_at": "2023-10-27T14:00:00Z"
+            "transaction_id": "<transaction_uuid>",
+            "sender": "<sender_username>",
+            "recipient": "<recipient_username>",
+            "amount": <amount>,
+            "created_at": "<timestamp>"
         }
     }
     ```
 
--   **Response (Error - 401 Unauthorized):**
+*   **Unauthorized (401 Unauthorized):**
 
     ```json
     {
-        "error": "invalid token"
+        "error": "<error_message>"
     }
     ```
+
+    Examples:
 
     ```json
     {
@@ -242,123 +276,236 @@ This is a simple API for simulating transactions between merchants and customers
 
     ```json
     {
-        "error": "invalid token format. Use 'Bearer <token>'"`
-    }
-    ```
-
--   **Response (Error - 422 Unprocessable Entity):**
-
-    ```json
-    {
-        "error": "insufficient balance" // Example: Not enough money in the account
+        "error": "Invalid Authorization header format"
     }
     ```
 
     ```json
     {
-        "error": "recipient not found" // Example: Recipient user doesn't exist
+        "error": "Invalid token"
     }
     ```
-
--   **Response (Error - 500 Internal Server Error):**
+    
     ```json
     {
-        "error": "failed to update sender's balance"
-    }
-    ```
-    ```json
-    {
-        "error": "failed to update recipient's balance"
+       "error": "Token has expired"
     }
     ```
 
-### 3. `/logout`
-
--   **Method:** `DELETE`
--   **Headers:**
-    -   `Authorization`: `Bearer <TOKEN>` (use the access token received from `/login`)
--   **Response (Success - 200 OK):**
+*   **Bad Request (400 Bad Request):**
+     * Returned if the request body is invalid or missing required fields, or if the sender and recipient are the same, or if the sender has insufficient balance, or if the sender or recipient is not found.
 
     ```json
     {
-        "message": "Logout successful",
-        "remaining_balance": 900
+        "error": "<error_message>"
     }
     ```
 
--   **Response (Error - 401 Unauthorized):**
+    Examples:
 
     ```json
     {
-        "error": "invalid token"
+        "error": "invalid request body"
     }
     ```
--   **Response (Error - 500 Internal Server Error):**
+
     ```json
     {
-        "error": "Failed to get user balance"
+        "error": "sender and recipient cannot be the same"
     }
     ```
 
-## Testing
+    ```json
+    {
+        "error": "insufficient balance"
+    }
+    ```
 
-You can use Postman, curl, or other tools for testing this API.
+    ```json
+    {
+        "error": "sender not found: user not found"
+    }
+    ```
 
-**Example using Postman:**
+    ```json
+    {
+        "error": "recipient not found: user not found"
+    }
+    ```
 
-1.  Import the Postman collection (provided in a previous response or create your own based on the API documentation).
-2.  Create an environment variable named `token` in Postman.
-3.  Send a request to `/login` to get an access token. Copy the `access_token` value to the `token` environment variable.
-4.  Send requests to `/payment` and `/logout` including the header `Authorization: Bearer {{token}}`.
+*   **Internal Server Error (500 Internal Server Error):**
+
+    ```json
+    {
+        "error": "<error_message>"
+    }
+    ```
+
+    Examples:
+
+    ```json
+    {
+        "error": "failed to update sender's balance: user not found"
+    }
+    ```
+
+    ```json
+    {
+       "error": "failed to update recipient's balance: user not found"
+    }
+    ```
+
+    ```json
+    {
+        "error": "failed to record transaction: ..."
+    }
+    ```
+
+### Logout (DELETE /logout)
+
+Logs out the user and invalidates the JWT token.
+
+**Request:**
+
+*   **Method:** `DELETE`
+*   **URL:** `/logout`
+*   **Headers:**
+    *   `Authorization`: `Bearer <jwt_token>`
+
+**Response:**
+
+*   **Success (200 OK):**
+
+    ```json
+    {
+        "message": "Logout success!",
+        "remaining_balance": <remaining_balance>
+    }
+    ```
+
+    *   `remaining_balance`: The user's remaining balance after logout (float64).
+
+*   **Unauthorized (401 Unauthorized):**
+
+    ```json
+    {
+       "error": "<error_message>"
+    }
+    ```
+
+    Examples:
+
+    ```json
+    {
+        "error": "Authorization header required"
+    }
+    ```
+
+    ```json
+    {
+        "error": "Invalid Authorization header format"
+    }
+    ```
+
+    ```json
+    {
+        "error": "Invalid token"
+    }
+    ```
+    
+    ```json
+    {
+       "error": "Token has expired"
+    }
+    ```
+
+*   **Internal Server Error (500 Internal Server Error):**
+
+    ```json
+    {
+        "error": "<error_message>"
+    }
+    ```
+
+## Testing with Postman
+
+1.  **Login:**
+
+    *   Create a `POST` request to `/login` with a valid username and password in the request body.
+    *   Copy the `token` from the response.
+
+2.  **Payment:**
+
+    *   Create a `POST` request to `/payment`.
+    *   Add an `Authorization` header with the value `Bearer <token>` (replace `<token>` with the token from the login response).
+    *   Provide the recipient's username and the amount in the request body.
+
+3.  **Logout:**
+
+    *   Create a `DELETE` request to `/logout`.
+    *   Add an `Authorization` header with the value `Bearer <token>` (use the same token).
+
+4.  **Test Token Invalidation:**
+
+    *   Try to make another `POST` request to `/payment` using the same token after logging out. You should receive a `401 Unauthorized` error with the message `Invalid token`.
 
 ## Deployment with Docker
 
-Here's a basic guide on how to deploy this application using Docker:
+To deploy this application using Docker, you can follow these basic steps:
 
-1.  **Create a `Dockerfile`:**
+1.  **Create a Dockerfile:**
+
+    Create a file named `Dockerfile` in the root directory of your project with the following content:
 
     ```dockerfile
-    # Use the official Golang image as the base image
-    FROM golang:1.21
+    # Use the official Golang base image.
+    FROM golang:1.20
 
-    # Set the working directory inside the container
+    # Set the working directory inside the container.
     WORKDIR /app
 
-    # Copy go.mod and go.sum files to the container
-    COPY go.mod go.sum ./
-
-    # Download all dependencies
-    RUN go mod download
-
-    # Copy the rest of the application code to the container
+    # Copy the local package files to the container's workspace.
     COPY . .
 
-    # Build the Go application
+    # Download all dependencies.
+    RUN go mod download
+
+    # Build the Go app.
     RUN go build -o main .
 
-    # Expose port 8080
+    # Expose port 8080 to the outside.
     EXPOSE 8080
 
-    # Define the command to run the executable
+    # Command to run the executable.
     CMD ["./main"]
     ```
 
-2.  **Build the Docker image:**
+2.  **Build the Docker Image:**
 
     ```bash
     docker build -t merchant-bank-api .
     ```
 
-3.  **Run the Docker container:**
+    This command creates a Docker image named `merchant-bank-api`.
+
+3.  **Run the Docker Container:**
 
     ```bash
-    docker run -p 8080:8080 -d --name merchant-bank-container -v $(pwd)/data:/app/data -e JWT_SECRET_KEY=YOUR_STRONG_SECRET_KEY merchant-bank-api
+    docker run -p 8080:8080 -e JWT_SECRET_KEY="your_actual_secret_key" --name merchant-bank-container merchant-bank-api
     ```
 
-    -   `-p 8080:8080`: Maps port 8080 of the container to port 8080 on the host machine.
-    -   `-d`: Runs the container in detached mode (in the background).
-    -   `--name merchant-bank-container`: Assigns a name to the container.
-    -   `-v $(pwd)/data:/app/data`: Mounts the local `data` directory to the `/app/data` directory inside the container (for data persistence).
-    -   `-e JWT_SECRET_KEY=YOUR_STRONG_SECRET_KEY`: Sets the `JWT_SECRET_KEY` environment variable inside the container. **Replace `YOUR_STRONG_SECRET_KEY` with your actual secret key.**
+    *   `-p 8080:8080`: Maps port 8080 of the container to port 8080 on your host machine.
+    *   `-e JWT_SECRET_KEY="your_actual_secret_key"`: Sets the `JWT_SECRET_KEY` environment variable inside the container. **Replace `"your_actual_secret_key"` with a strong secret key.**
+    *   `--name merchant-bank-container`: Set name for your container.
 
-    **Note:** You might need to adjust the Docker commands based on your operating system and environment.
+4. **Verify**
+   * You can verify if the container running or not by running this command `docker ps`
+
+5. **Stop Container**
+   * If you want to stop the container, you can run this command `docker stop merchant-bank-container`
+
+6. **Remove Container**
+    *   If you want to remove the container, you can run this command `docker rm merchant-bank-container`
+
+7.  **Remove Docker Image**
+    *   If you want to remove the docker image, you can run this command `docker rmi merchant-bank-api`
